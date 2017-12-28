@@ -47,33 +47,3 @@
         commit_changes: "{{commit}}"
         diff_file: diff/{{inventory_hostname}}-diff.txt
       when: "inventory_hostname in nodes.keys()"
-
-## Fourth Play
-- name: Validate BGP and LLDP
-  gather_facts: no
-  connection: local
-  hosts: all
-  tags: [ validate ]
-  tasks:
-    - name: GET BGP and LLDP output
-      napalm_get_facts:
-        hostname: "{{ inventory_hostname }}"
-        username: "{{ ansible_user }}"
-        dev_os: "{{dev_os}}"
-        password: "{{ ansible_ssh_pass }}"
-        filter: 
-          - lldp_neighbors
-          #- bgp_neighbors
-          #- interfaces_ip
-
-    - name: Setting Variables for Validation
-      include_vars: ./nodes.yml
-    - set_fact: node={{nodes[inventory_hostname]}}
-    - set_fact: core_intf={{node.links.keys()|append_str('.0')}}
-    - set_fact: lldp_intf={{napalm_lldp_neighbors.keys()}}
-    - debug:  var=core_intf
-    - debug:  var=lldp_intf
-  #  - debug: var=hostvars[inventory_hostname].napalm_lldp_neighbors
-  #  - debug:  var=napalm_bgp_neighbors
-  #  - debug:  var=core_intf
-  #  - debug: var=core_intf|difference(lldp_intf)|length
