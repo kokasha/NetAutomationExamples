@@ -1,0 +1,36 @@
+[edit system services]
++    telnet;
+[edit interfaces ge-0/0/1]
+-   description "OOB to Ansible Host";
++   description "OOB to MGMT Network";
+[edit interfaces ge-0/0/2]
+-   description vsrx2--ge-0/0/2__vsrx1--ge-0/0/2;
++   description vSRX1;
+[edit interfaces ge-0/0/3]
+-   description vsrx1--ge-0/0/3__vsrx3--ge-0/0/3;
++   description vSRX3;
+[edit protocols]
++   rsvp {
++       interface ge-0/0/2.0;
++       interface ge-0/0/3.0;
++   }
+[edit protocols bgp]
+     group ce1 { ... }
++    group Core {
++        type internal;
++        local-address 10.100.2.2;
++        family inet {
++            unicast;
++        }
++        family inet-vpn {
++            unicast;
++        }
++        export __Ansible_Core_export;
++        neighbor 10.100.1.1;
++    }
+[edit protocols ospf area 0.0.0.0 interface ge-0/0/2.0]
+-     metric 100;
++     metric 10;
+[edit protocols ospf area 0.0.0.0 interface ge-0/0/3.0]
+-     metric 100;
++     metric 10;

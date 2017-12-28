@@ -1,0 +1,151 @@
+
+system {
+    host-name vSRX1;
+    no-redirects;
+    root-authentication {
+        encrypted-password "$1$IEubk6rr$TAjfcpG6c7h747FzGd0dF."; ## SECRET-DATA
+    }
+    login {
+        user lab {
+            uid 2001;
+            class super-user;
+            authentication {
+                encrypted-password "$1$5dcoGq3x$.tmzXkl4fGzTpjHkOSMIU."; ## SECRET-DATA
+            }
+        }
+    }
+    services {
+        ssh;
+        telnet;
+        netconf {
+            ssh;
+            traceoptions {
+                file nc.txt size 1m world-readable;
+                flag incoming;
+            }
+        }
+    }
+    syslog {
+        user * {
+            any emergency;
+        }
+        file messages {
+            any any;
+            authorization info;
+        }
+        file interactive-commands {
+            interactive-commands any;
+        }
+    }
+}
+
+interfaces {
+    ge-0/0/1 {
+        description "OOB to MGMT Network";
+        unit 0 {
+            family inet {
+                address 192.10.1.101/24;
+            }
+        }
+    }
+    ge-0/0/2 {
+        description "vSRX2"
+        unit 0 {
+            family inet {
+                address 172.10.12.1/24
+            }
+        }
+    }
+   
+    ge-0/0/3 {
+        description "vSRX3"
+        unit 0 {
+            family inet {
+                address 172.10.13.1/24
+            }
+        }
+    }
+   
+    ge-0/0/4 {
+        description "XR4"
+        vlan-tagging;
+        encapsulation flexible-ethernet-services;
+        unit 40 {
+            vlan-id 40;
+            family inet {
+                address 172.10.14.1/24
+            }
+            family mpls;
+        }
+    }
+   
+    lo0 {
+        unit 0 {
+            family inet {
+                address 10.100.1.1/32;
+            }
+        }
+    }
+}
+routing-options {
+    router-id 10.100.1.1;
+    autonomous-system 65000;
+}
+protocols {
+    bgp {
+        group Core {
+            type internal;
+            local-address 10.100.1.1;
+            cluster 10.100.1.1;
+            family inet {               
+                unicast;
+            }
+            family inet-vpn {
+                unicast;
+            }
+            neighbor 10.100.2.2;
+            neighbor 10.100.3.3;
+            neighbor 10.100.4.4;
+        }
+    }
+    ospf {
+        area 0 {
+            interface ge-0/0/2.0 {
+                interface-type p2p;
+                metric 10;
+            }
+            interface ge-0/0/3.0 {
+                interface-type p2p;
+                metric 10;
+            }
+            interface ge-0/0/4.40 {
+                interface-type p2p;
+                metric 10;
+            }
+            interface lo0.0 {
+                passive;
+            }
+        }
+    }
+    ldp {
+        interface ge-0/0/2.0;
+        interface ge-0/0/3.0;
+        interface ge-0/0/4.40;
+        interface lo0.0;
+    }
+    rsvp {
+        interface ge-0/0/2.0;
+        interface ge-0/0/3.0;
+        interface ge-0/0/4.40;
+    }
+    mpls {
+        interface ge-0/0/2.0;
+        interface ge-0/0/3.0;
+        interface ge-0/0/4.40;
+    }
+    lldp {
+        interface ge-0/0/2;
+        interface ge-0/0/3;
+        interface ge-0/0/4;
+    }
+}

@@ -1,0 +1,79 @@
+---
+## First Play
+- hosts: localhost
+  name: Create per node data model
+  gather_facts: no
+  tags: [ model ]
+  vars_files:
+  - "core/{{model|default('core-model.yml')}}"
+  tasks:
+  - name: Create per-node data model from fabric data model
+    template: src=core/core-to-nodes.j2 dest=./nodes.yml
+
+## Second Play
+- name: Generate Configuration for all routers
+  gather_facts: no
+  connection: local
+  hosts: all
+  tags: [ template ]
+  tasks:
+    - include_vars: "./nodes.yml"
+    - name: create the directory for the configuration
+      file: path=core_config  state=directory
+      run_once: true
+    - name: Generate Configuration
+      template: src={{dev_os}}/core.j2 dest=core_config/{{inventory_hostname}}-config.txt
+
+## Third Play
+# commit variable is used to control the play
+# if commit=0 then we will not commit the changes we will only generate diff
+# if commit=1 then we will  commit the changes and generate diff
+- name: push the configuration to the devices
+  gather_facts: no
+  connection: local
+  hosts: all
+  tags: [ deploy ]
+  tasks:
+    - include_vars: "./nodes.yml"
+    - file: path=diff state=directory
+      run_once: true
+    - name: load the configuration to the devices
+      napalm_install_config:
+        hostname: "{{ inventory_hostname }}"
+        username: "{{ ansible_user }}"
+        dev_os: "{{dev_os}}"
+        password: "{{ ansible_ssh_pass }}"
+        config_file: core_config/{{inventory_hostname}}-config.txt
+        commit_changes: "{{commit}}"
+        diff_file: diff/{{inventory_hostname}}-diff.txt
+      when: "inventory_hostname in nodes.keys()"
+
+## Fourth Play
+- name: Validate BGP and LLDP
+  gather_facts: no
+  connection: local
+  hosts: all
+  tags: [ validate ]
+  tasks:
+    - name: GET BGP and LLDP output
+      napalm_get_facts:
+        hostname: "{{ inventory_hostname }}"
+        username: "{{ ansible_user }}"
+        dev_os: "{{dev_os}}"
+        password: "{{ ansible_ssh_pass }}"
+        filter: 
+          - lldp_neighbors
+          #- bgp_neighbors
+          #- interfaces_ip
+
+    - name: Setting Variables for Validation
+      include_vars: ./nodes.yml
+    - set_fact: node={{nodes[inventory_hostname]}}
+    - set_fact: core_intf={{node.links.keys()|append_str('.0')}}
+    - set_fact: lldp_intf={{napalm_lldp_neighbors.keys()}}
+    - debug:  var=core_intf
+    - debug:  var=lldp_intf
+  #  - debug: var=hostvars[inventory_hostname].napalm_lldp_neighbors
+  #  - debug:  var=napalm_bgp_neighbors
+  #  - debug:  var=core_intf
+  #  - debug: var=core_intf|difference(lldp_intf)|length

@@ -1,0 +1,82 @@
+#
+# Nodes in the network
+#
+
+---
+
+common:
+    bgp_asn: 65000
+
+nodes:
+
+  vSRX1:
+    mgmt: 192.10.1.101
+    rid:  10.100.1.1
+    links:
+      ge-0/0/2.0: { ip: 172.10.12.1, remote: vSRX2 , cost: 10 , vlan: 0}
+      ge-0/0/3.0: { ip: 172.10.13.1, remote: vSRX3 , cost: 10 , vlan: 0}
+      ge-0/0/4.40: { ip: 172.10.14.1, remote: XR4 , cost: 10 , vlan: 40}
+    bgp:
+       ibgp:
+         rr: true
+         peers:
+            - 10.100.2.2
+            - 10.100.3.3
+            - 10.100.4.4
+         af:
+            - inet
+            - inet-vpn
+    ospf:
+        area: 0
+        network: p2p
+
+  vSRX2:
+    mgmt: 192.10.1.102
+    rid:  10.100.2.2
+    links:
+      ge-0/0/2.0: { ip: 172.10.12.2, remote: vSRX1 , cost: 10 , vlan: 0}
+      ge-0/0/3.0: { ip: 172.10.23.2, remote: vSRX3 , cost: 10 , vlan: 0}
+    bgp:
+       ibgp:
+         peers:
+            - 10.100.1.1
+         af:
+            - inet
+            - inet-vpn
+    ospf:
+        area: 0
+        network: p2p
+
+  vSRX3:
+    mgmt: 192.10.1.103
+    rid:  10.100.3.3
+    links:
+      ge-0/0/2.0: { ip: 172.10.13.3, remote: vSRX1 , cost: 10 , vlan: 0}
+      ge-0/0/3.0: { ip: 172.10.23.3, remote: vSRX2 , cost: 10 , vlan: 0}
+    bgp:
+       ibgp:
+         peers:
+            - 10.100.1.1
+         af:
+            - inet
+            - inet-vpn
+    ospf:
+        area: 0
+        network: p2p
+
+  XR4:
+    mgmt: 192.10.1.104
+    rid:  10.100.4.4
+    links:
+      GigabitEthernet0/0/0/0.40: { ip: 172.10.14.4, remote: vSRX1 , cost: 10 , vlan: 40}
+    bgp:
+       ibgp:
+         peers:
+            - 10.100.1.1
+         af:
+            - inet
+            - inet-vpn
+    ospf:
+        area: 0
+        network: p2p
+

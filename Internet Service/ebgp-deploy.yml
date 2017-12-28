@@ -1,0 +1,80 @@
+---
+- hosts: localhost
+  name: Create node data model
+  gather_facts: no
+  tags: [ model ]
+  vars_files:
+  - "{{model|default('eBGP-model.yml')}}"
+  tasks:
+  - name: Create per-node data model from fabric data model
+    template: src=ebgp-service.j2 dest=./ebgp-node.yml
+  - debug: var=vars
+
+#  - debug: var=vars
+
+- name: Generate Configuration for all routers
+  gather_facts: no
+  connection: local
+  hosts: all
+  tags: [ template ]
+  tasks:
+    - include_vars: "./ebgp-node.yml"
+    - file: path=ebgp_config  state=directory
+      run_once: true
+    - name: Generate Configuration
+      template: src=./jnpr-ebgp.j2 dest=ebgp_config/{{inventory_hostname}}-ebgp-config.txt
+      when: "inventory_hostname in nodes.keys()"
+
+
+- name: push the configuration to the devices
+  gather_facts: no
+  connection: local
+  hosts: all
+  tags: [ deploy ]
+  tasks:
+    - include_vars: "./ebgp-node.yml"
+    - file: path=diff state=directory
+      run_once: true
+    - name: load the configuration to the devices
+      napalm_install_config:
+        hostname: "{{ inventory_hostname }}"
+        username: "{{ ansible_user }}"
+        dev_os: "{{dev_os}}"
+        password: "{{ ansible_ssh_pass }}"
+        config_file: ebgp_config/{{inventory_hostname}}-ebgp-config.txt
+        commit_changes: "{{commit}}"
+        diff_file: diff/{{inventory_hostname}}-diff.txt
+      when: "inventory_hostname in nodes.keys()"
+
+
+- name: Validate BGP and LLDP
+  gather_facts: no
+  connection: local
+  hosts: all
+  tags: [ validate ]
+  tasks:
+  - include_vars: "./ebgp-node.yml"
+  - name: GET BGP and LLDP output
+    napalm_get_facts:
+      hostname: "{{ inventory_hostname }}"
+      username: "{{ ansible_user }}"
+      dev_os: "{{dev_os}}"
+      password: "{{ ansible_ssh_pass }}"
+      filter: 
+        - bgp_neighbors
+    when: "inventory_hostname in nodes.keys()"
+
+  - set_fact: node={{nodes[inventory_hostname]}}
+    when: "inventory_hostname in nodes.keys()"
+
+  - debug: msg={{item.value.ip}}
+    with_dict: "{{node.bgp.ebgp.peers}}"
+    when: "inventory_hostname in nodes.keys()"
+
+
+  - name: Validate BGP
+    assert:
+      that: napalm_bgp_neighbors.global.peers[item.value.ip].is_up == true
+      msg: "Neighbor {{item.value.ip}} is not operational"
+    with_dict: "{{node.bgp.ebgp.peers}}"
+    when: "inventory_hostname in nodes.keys()"

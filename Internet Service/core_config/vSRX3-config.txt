@@ -1,0 +1,142 @@
+
+system {
+    host-name vSRX3;
+    no-redirects;
+    root-authentication {
+        encrypted-password "$1$IEubk6rr$TAjfcpG6c7h747FzGd0dF."; ## SECRET-DATA
+    }
+    login {
+        user lab {
+            uid 2001;
+            class super-user;
+            authentication {
+                encrypted-password "$1$5dcoGq3x$.tmzXkl4fGzTpjHkOSMIU."; ## SECRET-DATA
+            }
+        }
+    }
+    services {
+        ssh;
+        telnet;
+        netconf {
+            ssh;
+            traceoptions {
+                file nc.txt size 1m world-readable;
+                flag incoming;
+            }
+        }
+    }
+    syslog {
+        user * {
+            any emergency;
+        }
+        file messages {
+            any any;
+            authorization info;
+        }
+        file interactive-commands {
+            interactive-commands any;
+        }
+    }
+}
+
+interfaces {
+    ge-0/0/1 {
+        description "OOB to MGMT Network";
+        unit 0 {
+            family inet {
+                address 192.10.1.103/24;
+            }
+        }
+    }
+    ge-0/0/2 {
+        description "vSRX1"
+        unit 0 {
+            family inet {
+                address 172.10.13.3/24
+            }
+        }
+    }
+   
+    ge-0/0/3 {
+        description "vSRX2"
+        unit 0 {
+            family inet {
+                address 172.10.23.3/24
+            }
+        }
+    }
+   
+    lo0 {
+        unit 0 {
+            family inet {
+                address 10.100.3.3/32;
+            }
+        }
+    }
+}
+routing-options {
+    router-id 10.100.3.3;
+    autonomous-system 65000;
+}
+protocols {
+    bgp {
+        group Core {
+            type internal;
+            export __Ansible_Core_export;
+            local-address 10.100.3.3;
+            family inet {               
+                unicast;
+            }
+            family inet-vpn {
+                unicast;
+            }
+            neighbor 10.100.1.1;
+        }
+    }
+    ospf {
+        area 0 {
+            interface ge-0/0/2.0 {
+                interface-type p2p;
+                metric 10;
+            }
+            interface ge-0/0/3.0 {
+                interface-type p2p;
+                metric 10;
+            }
+            interface lo0.0 {
+                passive;
+            }
+        }
+    }
+    ldp {
+        interface ge-0/0/2.0;
+        interface ge-0/0/3.0;
+        interface lo0.0;
+    }
+    rsvp {
+        interface ge-0/0/2.0;
+        interface ge-0/0/3.0;
+    }
+    mpls {
+        interface ge-0/0/2.0;
+        interface ge-0/0/3.0;
+    }
+    lldp {
+        interface ge-0/0/2;
+        interface ge-0/0/3;
+    }
+}
+policy-options {
+    policy-statement __Ansible_Core_export {
+        term ebgp {
+            from {
+                protocol bgp;
+                external;
+            }
+            then {
+                next-hop self;
+                accept;
+            }
+        }
+    }
+}
